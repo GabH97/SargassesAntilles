@@ -9,13 +9,13 @@ import urllib.request
 st.title("Sargasses - Arc Antillais")
 st.write("Suivi satellitaire (USF Marine Optics)")
 
-# Configuration temporelle (On regarde sur les 25 derniers jours pour avoir un bon historique même s'il manque des jours)
+# Configuration temporelle (On regarde sur les 20 derniers jours pour avoir un bon historique même s'il manque des jours)
 aujourd_hui = datetime.date.today()
 year = aujourd_hui.year
 end_day = aujourd_hui.timetuple().tm_yday
-num_days_history = 25 
+num_days_history = 20
 
-crop_box = (1, 520, 710, 1160)
+crop_box = (1, 450, 710, 1160)
 mois_fr = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
 
 headers = {
@@ -83,8 +83,8 @@ if st.button("Générer la mise à jour (Patientez ~15 sec)"):
                 
                 # --- Polices avec les nouvelles tailles X3 ---
                 try:
-                    font_date = ImageFont.truetype(font_filename, 60) # Taille 60 pour la date
-                    font_source = ImageFont.truetype(font_filename, 42) # Taille 42 pour la source
+                    font_date = ImageFont.truetype(font_filename, 30) # Taille 60 pour la date
+                    font_source = ImageFont.truetype(font_filename, 25) # Taille 42 pour la source
                 except:
                     font_date = ImageFont.load_default()
                     font_source = ImageFont.load_default()
