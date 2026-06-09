@@ -134,8 +134,8 @@ if st.button("Générer la mise à jour (Patientez ~15 sec)"):
                 draw = ImageDraw.Draw(img_cropped)
                 
                 try:
-                    font_date = ImageFont.truetype(font_filename, 30) # Nouvelle taille : 30
-                    font_source = ImageFont.truetype(font_filename, 25) # Nouvelle taille : 25
+                    font_date = ImageFont.truetype(font_filename, 30) 
+                    font_source = ImageFont.truetype(font_filename, 25) 
                 except:
                     font_date = ImageFont.load_default()
                     font_source = ImageFont.load_default()
@@ -199,31 +199,38 @@ def afficher_bulletin_mf(url_mf, base_url, titre_section):
             if date_bulletin:
                 st.markdown(f"**Mise à jour : {date_bulletin}**")
 
-            # 2. Extraction de la Carte
-            images = main_content.find_all('img')
+            # 2. Extraction de la VRAIE Carte (Améliorée)
             url_carte = None
-            for img in images:
-                src = img.get('src', '').lower()
-                alt = img.get('alt', '').lower()
-                
-                if not any(mot in src for mot in ['logo', 'icon', 'banner', 'bg', 'avatar']):
-                    if 'carte' in src or 'echouement' in src or 'prevision' in src or 'sargasse' in src or 'carte' in alt:
-                        url_carte = img.get('src')
-                        break
             
-            if not url_carte:
-                for img in images:
-                    src = img.get('src', '')
-                    if src and not any(mot in src.lower() for mot in ['logo', 'icon', 'banner', 'bg', 'avatar']):
-                        url_carte = src
+            # Méthode A : Chercher l'image juste en dessous du titre de la carte
+            for el in main_content.find_all(['p', 'h2', 'h3', 'h4', 'div', 'strong', 'figcaption']):
+                if "carte de prévision" in el.get_text().lower() or "carte des risques" in el.get_text().lower():
+                    img_suivante = el.find_next('img')
+                    if img_suivante:
+                        url_carte = img_suivante.get('src')
                         break
+
+            # Méthode B : Filtrage strict par mots-clés si la Méthode A échoue
+            if not url_carte:
+                for img in main_content.find_all('img'):
+                    src = img.get('src', '').lower()
+                    alt = img.get('alt', '').lower()
+                    
+                    # On BANNIT formellement les photos d'illustration
+                    mots_interdits = ['logo', 'icon', 'banner', 'bg', 'avatar', 'photo', 'paysage', 'plage', 'baie', 'illustr', 'header', 'default']
+                    
+                    if not any(mot in src for mot in mots_interdits) and not any(mot in alt for mot in mots_interdits):
+                        if 'carte' in src or 'prev' in src or 'risque' in src or 'echouement' in src or 'carte' in alt:
+                            url_carte = img.get('src')
+                            break
 
             if url_carte:
                 url_carte_complete = urljoin(base_url, url_carte)
-                st.image(url_carte_complete, caption="Carte de prévision d'échouement")
+                st.image(url_carte_complete, caption="Carte de prévision d'échouement (Météo France)")
 
             # 3. Extraction des Textes
             titres = main_content.find_all(['h2', 'h3', 'h4', 'strong'])
+            prevision_affichee = False # Pour éviter le doublon de titre
             
             for titre in titres:
                 texte_titre = titre.get_text().strip()
@@ -233,8 +240,10 @@ def afficher_bulletin_mf(url_mf, base_url, titre_section):
                     if suivant and "{" not in suivant.get_text():
                         st.write(f"**Indice de confiance :** {suivant.get_text().strip()}")
                 
-                elif "4 prochains jours" in texte_titre.lower():
+                elif "4 prochains jours" in texte_titre.lower() and not prevision_affichee:
                     st.markdown("#### Prévisions pour les 4 prochains jours")
+                    prevision_affichee = True # On note qu'on l'a affiché pour ne pas le refaire
+                    
                     element_suivant = titre.find_next_sibling()
                     
                     while element_suivant and element_suivant.name in ['p', 'ul', 'div']:
