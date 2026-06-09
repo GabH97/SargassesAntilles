@@ -232,4 +232,58 @@ def afficher_bulletin_mf(url_mf, base_url, titre_section):
                 st.image(url_carte_complete, caption="Carte de prévision d'échouement (Météo France)")
 
             # 3. Récupération et tri des Textes
-            titres = main_content.find_all(['h2', 'h
+            titres = main_content.find_all(['h2', 'h3', 'h4', 'strong'])
+            
+            indice_confiance = None
+            previsions_texte = []
+            
+            for titre in titres:
+                texte_titre = titre.get_text().strip()
+                
+                # Récupération de l'indice
+                if "Indice de confiance" in texte_titre:
+                    suivant = titre.find_next_sibling()
+                    if suivant and "{" not in suivant.get_text():
+                        indice_confiance = suivant.get_text().strip()
+                
+                # Récupération des prévisions
+                elif "4 prochains jours" in texte_titre.lower() and not previsions_texte:
+                    element_suivant = titre.find_next_sibling()
+                    
+                    while element_suivant and element_suivant.name in ['p', 'ul', 'div']:
+                        texte_para = element_suivant.get_text().strip()
+                        if texte_para and "{" not in texte_para and "$" not in texte_para:
+                            previsions_texte.append(texte_para)
+                        element_suivant = element_suivant.find_next_sibling()
+
+            # 4. Affichage dans l'ordre strict
+            if indice_confiance:
+                st.write(f"**Indice de confiance :** {indice_confiance}")
+                
+            if previsions_texte:
+                st.markdown("#### Prévisions pour les 4 prochains jours")
+                for para in previsions_texte:
+                    st.write(para)
+
+            st.markdown(f"*Source : [{url_mf}]({url_mf})*")
+
+        else:
+            st.error(f"Impossible de joindre le site ({req_mf.status_code}).")
+    except Exception as e:
+        st.warning(f"Le bulletin pour {titre_section} n'a pas pu être chargé correctement.")
+
+
+# --- 5. AFFICHAGE DES BULLETINS ---
+# Guadeloupe
+afficher_bulletin_mf(
+    url_mf="https://meteofrance.gp/fr/sargasses", 
+    base_url="https://meteofrance.gp", 
+    titre_section="Prévisions Météo France - Guadeloupe"
+)
+
+# Martinique
+afficher_bulletin_mf(
+    url_mf="https://meteofrance.mq/fr/sargasses", 
+    base_url="https://meteofrance.mq", 
+    titre_section="Prévisions Météo France - Martinique"
+)
