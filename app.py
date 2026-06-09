@@ -30,7 +30,8 @@ st.markdown("""
         font-weight: 700 !important;
         margin-top: 30px !important;
         padding-bottom: 10px !important;
-        border-bottom: 2px solid #f0f2f6 !important;
+        /* Ligne de séparation semi-transparente pour s'adapter au mode clair/sombre */
+        border-bottom: 1px solid rgba(128, 128, 128, 0.3) !important; 
     }
     
     /* Titres de paragraphes (ex: Prévisions pour les 4 prochains jours) (H3, H4) */
@@ -45,7 +46,7 @@ st.markdown("""
     p, li, .stMarkdown {
         font-size: 16px !important;
         line-height: 1.6 !important;
-        color: #2c3e50 !important;
+        /* La couleur du texte n'est plus forcée : Streamlit passera au blanc en Mode Nuit ! */
     }
 
     /* Amélioration du bouton pour les doigts sur écran tactile (pouce) */
