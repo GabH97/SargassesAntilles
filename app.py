@@ -18,7 +18,7 @@ st.set_page_config(page_title="Sargasses", page_icon="🌿")
 st.markdown(
     """
     <head>
-        <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/GabH97/SargassesAntilles/blob/main/apple-touch-icon.png">
+        <link rel="apple-touch-icon" href="https://github.com/GabH97/SargassesAntilles/blob/main/apple-touch-icon.png?raw=true">
     </head>
     """, 
     unsafe_allow_html=True
