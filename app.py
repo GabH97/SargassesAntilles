@@ -6,6 +6,59 @@ import datetime
 import os
 import urllib.request
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+
+# --- 0. INJECTION DU STYLE CSS POUR MOBILE ---
+st.markdown("""
+<style>
+    /* Typographie globale optimisée pour l'écosystème Apple/Mobile */
+    html, body, [class*="st-"] {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    }
+    
+    /* Titre principal de l'application (H1) */
+    h1 {
+        font-size: 32px !important;
+        font-weight: 800 !important;
+        line-height: 1.2 !important;
+        padding-bottom: 5px !important;
+    }
+    
+    /* Sous-titres de section (ex: Prévisions Météo France) (H2) */
+    h2 {
+        font-size: 24px !important;
+        font-weight: 700 !important;
+        margin-top: 30px !important;
+        padding-bottom: 10px !important;
+        border-bottom: 2px solid #f0f2f6 !important;
+    }
+    
+    /* Titres de paragraphes (ex: Prévisions pour les 4 prochains jours) (H3, H4) */
+    h3, h4 {
+        font-size: 20px !important;
+        font-weight: 600 !important;
+        margin-top: 15px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    /* Texte normal de lecture, paragraphes et listes */
+    p, li, .stMarkdown {
+        font-size: 16px !important;
+        line-height: 1.6 !important;
+        color: #2c3e50 !important;
+    }
+
+    /* Amélioration du bouton pour les doigts sur écran tactile (pouce) */
+    .stButton>button {
+        width: 100% !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+        margin-bottom: 20px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("Sargasses - Arc Antillais")
 st.write("Suivi satellitaire (USF Marine Optics)")
@@ -14,9 +67,9 @@ st.write("Suivi satellitaire (USF Marine Optics)")
 aujourd_hui = datetime.date.today()
 year = aujourd_hui.year
 end_day = aujourd_hui.timetuple().tm_yday
-num_days_history = 25 
+num_days_history = 20 
 
-crop_box = (1, 520, 710, 1160)
+crop_box = (1, 450, 710, 1150)
 mois_fr = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
 
 headers = {
@@ -124,78 +177,70 @@ if st.button("Générer la mise à jour (Patientez ~15 sec)"):
         st.error("❌ Aucune image n'a pu être téléchargée pour le moment. Réessayez demain !")
 
 
-# --- 3. BULLETIN MÉTÉO FRANCE (CORRIGÉ) ---
-st.markdown("---")
-st.subheader("Prévisions Météo France")
-
-try:
-    url_mf = "https://meteofrance.gp/fr/sargasses"
-    req_mf = requests.get(url_mf, headers=headers, timeout=10)
+# --- 3. FONCTION DE LECTURE DES BULLETINS MÉTÉO FRANCE ---
+def afficher_bulletin_mf(url_mf, base_url, titre_section):
+    st.subheader(titre_section)
     
-    if req_mf.status_code == 200:
-        soup = BeautifulSoup(req_mf.text, 'html.parser')
+    try:
+        req_mf = requests.get(url_mf, headers=headers, timeout=10)
         
-        # On cible le cœur de la page pour éviter les menus et pop-ups
-        main_content = soup.find('main') or soup.find('article') or soup.find('div', class_='region-content') or soup
-        
-        # 1. Extraction de la Date
-        date_bulletin = None
-        for p in main_content.find_all(['p', 'h2', 'div']):
-            texte = p.get_text().strip()
-            # On cherche une ligne courte contenant "202" (l'année) et sans symboles de code
-            if "202" in texte and len(texte) < 50 and "{" not in texte and "$" not in texte:
-                date_bulletin = texte
-                break
-        
-        if date_bulletin:
-            st.markdown(f"**Mise à jour : {date_bulletin}**")
-
-        # 2. Extraction de la Carte (On évite la photo de paysage générique)
-        images = main_content.find_all('img')
-        url_carte = None
-        for img in images:
-            src = img.get('src', '').lower()
-            alt = img.get('alt', '').lower()
+        if req_mf.status_code == 200:
+            soup = BeautifulSoup(req_mf.text, 'html.parser')
+            main_content = soup.find('main') or soup.find('article') or soup.find('div', class_='region-content') or soup
             
-            # Si l'image contient carte, echouement, prevision ET qu'elle n'est pas un logo/paysage
-            if ('carte' in src or 'echouement' in src or 'prevision' in src or 'carte' in alt):
-                if not any(mot in src for mot in ['logo', 'icon', 'banner', 'bg', 'plage', 'photo']):
-                    url_carte = img.get('src')
+            # 1. Extraction de la Date
+            date_bulletin = None
+            for p in main_content.find_all(['p', 'h2', 'div']):
+                texte = p.get_text().strip()
+                if "202" in texte and len(texte) < 50 and "{" not in texte and "$" not in texte:
+                    date_bulletin = texte
                     break
-        
-        if url_carte:
-            if url_carte.startswith('/'):
-                url_carte = "https://meteofrance.gp" + url_carte
-            st.image(url_carte, caption="Carte de prévision d'échouement")
+            
+            if date_bulletin:
+                st.markdown(f"**Mise à jour : {date_bulletin}**")
 
-        # 3. Extraction des Textes (Nettoyé des variables JavaScript)
-        titres = main_content.find_all(['h2', 'h3', 'h4', 'strong'])
-        
-        for titre in titres:
-            texte_titre = titre.get_text().strip()
-            
-            # Extraction de l'Indice de confiance
-            if "Indice de confiance" in texte_titre:
-                suivant = titre.find_next_sibling()
-                if suivant and "{" not in suivant.get_text():
-                    st.write(f"**Indice de confiance :** {suivant.get_text().strip()}")
-            
-            # Extraction du paragraphe des 4 prochains jours
-            elif "4 prochains jours" in texte_titre.lower():
-                st.markdown("#### Prévisions pour les 4 prochains jours")
-                element_suivant = titre.find_next_sibling()
+            # 2. Extraction de la Carte (Correction avec urljoin)
+            images = main_content.find_all('img')
+            url_carte = None
+            for img in images:
+                src = img.get('src', '').lower()
+                alt = img.get('alt', '').lower()
                 
-                # On ne prend QUE les vrais paragraphes de texte (balise <p>)
-                while element_suivant and element_suivant.name in ['p', 'ul']:
-                    texte_para = element_suivant.get_text().strip()
-                    # Filtre anti-code : on ignore tout ce qui ressemble à du JavaScript
-                    if texte_para and "{" not in texte_para and "$" not in texte_para:
-                        st.write(texte_para)
-                    element_suivant = element_suivant.find_next_sibling()
+                # Exclusion des logos et icônes
+                if not any(mot in src for mot in ['logo', 'icon', 'banner', 'bg', 'avatar']):
+                    # Recherche de mots clés pour être sûr que c'est une carte
+                    if 'carte' in src or 'echouement' in src or 'prevision' in src or 'sargasse' in src or 'carte' in alt:
+                        url_carte = img.get('src')
+                        break
+            
+            # Si on n'a rien trouvé avec les mots clés, on prend la première "vraie" image de l'article
+            if not url_carte:
+                for img in images:
+                    src = img.get('src', '')
+                    if src and not any(mot in src.lower() for mot in ['logo', 'icon', 'banner', 'bg', 'avatar']):
+                        url_carte = src
+                        break
 
-        st.markdown("\n\n*Source : [meteofrance.gp/fr/sargasses](https://meteofrance.gp/fr/sargasses)*")
+            if url_carte:
+                # On s'assure que le lien est complet (ex: ajoute meteofrance.gp devant /sites/...)
+                url_carte_complete = urljoin(base_url, url_carte)
+                st.image(url_carte_complete, caption="Carte de prévision d'échouement")
 
-    else:
-        st.error("Météo France inaccessible.")
-except Exception as e:
-    st.warning("Le bulletin de Météo France n'a pas pu être chargé correctement.")
+            # 3. Extraction des Textes
+            titres = main_content.find_all(['h2', 'h3', 'h4', 'strong'])
+            
+            for titre in titres:
+                texte_titre = titre.get_text().strip()
+                
+                if "Indice de confiance" in texte_titre:
+                    suivant = titre.find_next_sibling()
+                    if suivant and "{" not in suivant.get_text():
+                        st.write(f"**Indice de confiance :** {suivant.get_text().strip()}")
+                
+                elif "4 prochains jours" in texte_titre.lower():
+                    st.markdown("#### Prévisions pour les 4 prochains jours")
+                    element_suivant = titre.find_next_sibling()
+                    
+                    while element_suivant and element_suivant.name in ['p', 'ul', 'div']:
+                        texte_para = element_suivant.get_text().strip()
+                        if texte_para and "{" not in texte_para
