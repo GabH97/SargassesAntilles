@@ -124,7 +124,7 @@ if st.button("Générer la mise à jour (Patientez ~15 sec)"):
         st.error("❌ Aucune image n'a pu être téléchargée pour le moment. Réessayez demain !")
 
 
-# --- 3. BULLETIN MÉTÉO FRANCE (NOUVEAU) ---
+# --- 3. BULLETIN MÉTÉO FRANCE (CORRIGÉ) ---
 st.markdown("---")
 st.subheader("Prévisions Météo France")
 
@@ -135,52 +135,67 @@ try:
     if req_mf.status_code == 200:
         soup = BeautifulSoup(req_mf.text, 'html.parser')
         
-        # 1. Recherche de la carte d'échouement (image)
-        images = soup.find_all('img')
-        url_carte = None
-        for img in images:
-            src = img.get('src', '')
-            # On cherche une image qui ressemble à la carte des sargasses
-            if 'sargasse' in src.lower() or 'echouement' in src.lower() or 'carte' in src.lower() or 'prevision' in src.lower():
-                url_carte = src
+        # On cible le cœur de la page pour éviter les menus et pop-ups
+        main_content = soup.find('main') or soup.find('article') or soup.find('div', class_='region-content') or soup
+        
+        # 1. Extraction de la Date
+        date_bulletin = None
+        for p in main_content.find_all(['p', 'h2', 'div']):
+            texte = p.get_text().strip()
+            # On cherche une ligne courte contenant "202" (l'année) et sans symboles de code
+            if "202" in texte and len(texte) < 50 and "{" not in texte and "$" not in texte:
+                date_bulletin = texte
                 break
         
+        if date_bulletin:
+            st.markdown(f"**Mise à jour : {date_bulletin}**")
+
+        # 2. Extraction de la Carte (On évite la photo de paysage générique)
+        images = main_content.find_all('img')
+        url_carte = None
+        for img in images:
+            src = img.get('src', '').lower()
+            alt = img.get('alt', '').lower()
+            
+            # Si l'image contient carte, echouement, prevision ET qu'elle n'est pas un logo/paysage
+            if ('carte' in src or 'echouement' in src or 'prevision' in src or 'carte' in alt):
+                if not any(mot in src for mot in ['logo', 'icon', 'banner', 'bg', 'plage', 'photo']):
+                    url_carte = img.get('src')
+                    break
+        
         if url_carte:
-            # Sécurité si l'URL de l'image est relative (commence par /)
             if url_carte.startswith('/'):
                 url_carte = "https://meteofrance.gp" + url_carte
-            st.image(url_carte, caption="Carte prévisionnelle (Météo France)")
-            
-        # 2. Recherche du texte des prévisions
-        st.markdown("#### Prévisions pour les 4 prochains jours")
-        
-        # On cherche tous les titres ou textes en gras
-        titres = soup.find_all(['h2', 'h3', 'h4', 'strong', 'div'])
-        texte_trouve = False
+            st.image(url_carte, caption="Carte de prévision d'échouement")
+
+        # 3. Extraction des Textes (Nettoyé des variables JavaScript)
+        titres = main_content.find_all(['h2', 'h3', 'h4', 'strong'])
         
         for titre in titres:
-            if "4 prochains jours" in titre.get_text().lower() or "prévisions" in titre.get_text().lower():
-                # On parcours les paragraphes qui suivent ce titre
+            texte_titre = titre.get_text().strip()
+            
+            # Extraction de l'Indice de confiance
+            if "Indice de confiance" in texte_titre:
+                suivant = titre.find_next_sibling()
+                if suivant and "{" not in suivant.get_text():
+                    st.write(f"**Indice de confiance :** {suivant.get_text().strip()}")
+            
+            # Extraction du paragraphe des 4 prochains jours
+            elif "4 prochains jours" in texte_titre.lower():
+                st.markdown("#### Prévisions pour les 4 prochains jours")
                 element_suivant = titre.find_next_sibling()
                 
-                # Tant qu'on trouve des paragraphes ou des listes, on les affiche
-                while element_suivant and element_suivant.name in ['p', 'div', 'ul']:
-                    texte = element_suivant.get_text().strip()
-                    if texte and len(texte) > 10: # On évite les paragraphes vides
-                        st.write(texte)
-                        texte_trouve = True
+                # On ne prend QUE les vrais paragraphes de texte (balise <p>)
+                while element_suivant and element_suivant.name in ['p', 'ul']:
+                    texte_para = element_suivant.get_text().strip()
+                    # Filtre anti-code : on ignore tout ce qui ressemble à du JavaScript
+                    if texte_para and "{" not in texte_para and "$" not in texte_para:
+                        st.write(texte_para)
                     element_suivant = element_suivant.find_next_sibling()
-                
-                if texte_trouve:
-                    break # On arrête de chercher si on a trouvé le bon bloc
-                    
-        if not texte_trouve:
-            st.info("Le texte de prévision n'a pas pu être extrait. Consultez le site complet ci-dessous.")
-            
-        st.markdown("\n\n*Source complète : [meteofrance.gp/fr/sargasses](https://meteofrance.gp/fr/sargasses)*")
+
+        st.markdown("\n\n*Source : [meteofrance.gp/fr/sargasses](https://meteofrance.gp/fr/sargasses)*")
 
     else:
-        st.error(f"Impossible de joindre Météo France (Erreur {req_mf.status_code}).")
-        
+        st.error("Météo France inaccessible.")
 except Exception as e:
-    st.warning("Le bulletin Météo France est temporairement indisponible depuis l'application.")
+    st.warning("Le bulletin de Météo France n'a pas pu être chargé correctement.")
