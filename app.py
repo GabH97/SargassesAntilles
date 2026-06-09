@@ -199,10 +199,8 @@ def afficher_bulletin_mf(url_mf, base_url, titre_section):
             if date_bulletin:
                 st.markdown(f"**Mise à jour : {date_bulletin}**")
 
-            # 2. Extraction de la VRAIE Carte (Améliorée)
+            # 2. Extraction de la Carte
             url_carte = None
-            
-            # Méthode A : Chercher l'image juste en dessous du titre de la carte
             for el in main_content.find_all(['p', 'h2', 'h3', 'h4', 'div', 'strong', 'figcaption']):
                 if "carte de prévision" in el.get_text().lower() or "carte des risques" in el.get_text().lower():
                     img_suivante = el.find_next('img')
@@ -210,13 +208,10 @@ def afficher_bulletin_mf(url_mf, base_url, titre_section):
                         url_carte = img_suivante.get('src')
                         break
 
-            # Méthode B : Filtrage strict par mots-clés si la Méthode A échoue
             if not url_carte:
                 for img in main_content.find_all('img'):
                     src = img.get('src', '').lower()
                     alt = img.get('alt', '').lower()
-                    
-                    # On BANNIT formellement les photos d'illustration
                     mots_interdits = ['logo', 'icon', 'banner', 'bg', 'avatar', 'photo', 'paysage', 'plage', 'baie', 'illustr', 'header', 'default']
                     
                     if not any(mot in src for mot in mots_interdits) and not any(mot in alt for mot in mots_interdits):
@@ -228,49 +223,31 @@ def afficher_bulletin_mf(url_mf, base_url, titre_section):
                 url_carte_complete = urljoin(base_url, url_carte)
                 st.image(url_carte_complete, caption="Carte de prévision d'échouement (Météo France)")
 
-            # 3. Extraction des Textes
+            # 3. Récupération et tri des Textes
             titres = main_content.find_all(['h2', 'h3', 'h4', 'strong'])
-            prevision_affichee = False # Pour éviter le doublon de titre
+            
+            indice_confiance = None
+            previsions_texte = []
             
             for titre in titres:
                 texte_titre = titre.get_text().strip()
                 
+                # Récupération de l'indice
                 if "Indice de confiance" in texte_titre:
                     suivant = titre.find_next_sibling()
                     if suivant and "{" not in suivant.get_text():
-                        st.write(f"**Indice de confiance :** {suivant.get_text().strip()}")
+                        indice_confiance = suivant.get_text().strip()
                 
-                elif "4 prochains jours" in texte_titre.lower() and not prevision_affichee:
-                    st.markdown("#### Prévisions pour les 4 prochains jours")
-                    prevision_affichee = True # On note qu'on l'a affiché pour ne pas le refaire
-                    
+                # Récupération des prévisions
+                elif "4 prochains jours" in texte_titre.lower() and not previsions_texte:
                     element_suivant = titre.find_next_sibling()
                     
                     while element_suivant and element_suivant.name in ['p', 'ul', 'div']:
                         texte_para = element_suivant.get_text().strip()
                         if texte_para and "{" not in texte_para and "$" not in texte_para:
-                            st.write(texte_para)
+                            previsions_texte.append(texte_para)
                         element_suivant = element_suivant.find_next_sibling()
 
-            st.markdown(f"*Source : [{url_mf}]({url_mf})*")
-
-        else:
-            st.error(f"Impossible de joindre le site ({req_mf.status_code}).")
-    except Exception as e:
-        st.warning(f"Le bulletin pour {titre_section} n'a pas pu être chargé correctement.")
-
-
-# --- 4. AFFICHAGE DES BULLETINS ---
-# Guadeloupe
-afficher_bulletin_mf(
-    url_mf="https://meteofrance.gp/fr/sargasses", 
-    base_url="https://meteofrance.gp", 
-    titre_section="Prévisions Météo France - Guadeloupe"
-)
-
-# Martinique
-afficher_bulletin_mf(
-    url_mf="https://meteofrance.mq/fr/sargasses", 
-    base_url="https://meteofrance.mq", 
-    titre_section="Prévisions Météo France - Martinique"
-)
+            # 4. Affichage dans l'ordre strict demandé
+            if indice_confiance:
+                st.
