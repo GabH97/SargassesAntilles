@@ -9,14 +9,28 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
 # --- 0. CONFIGURATION DE LA PAGE ET DE L'ICÔNE ---
-try:
-    # On demande à Streamlit de charger votre image comme icône officielle
-    icone = Image.open("apple-touch-icon.png")
-    st.set_page_config(page_title="Sargasses", page_icon=icone)
-except Exception:
-    st.set_page_config(page_title="Sargasses", page_icon="🌿")
+# (L'icône "🌿" s'affichera sur PC)
+st.set_page_config(page_title="Sargasses", page_icon="🌿") 
 
-# --- 1. INJECTION DU STYLE CSS POUR MOBILE ---
+# --- 1. ASTUCE JAVASCRIPT POUR FORCER L'ICÔNE IPHONE ---
+# Collez ICI le lien direct (Raw) vers votre image GitHub entre les guillemets :
+url_icone_apple = "https://github.com/GabH97/SargassesAntilles/blob/main/apple-touch-icon.png?raw=true"
+
+components.html(
+    f"""
+    <script>
+        // Ce script invisible accède à la page parente et force l'installation de l'icône Apple
+        const link = window.parent.document.createElement('link');
+        link.rel = 'apple-touch-icon';
+        link.href = '{url_icone_apple}';
+        window.parent.document.head.appendChild(link);
+    </script>
+    """,
+    height=0,
+    width=0,
+)
+
+# --- 2. INJECTION DU STYLE CSS POUR MOBILE ---
 st.markdown("""
 <style>
     /* Typographie globale optimisée pour l'écosystème Apple/Mobile */
