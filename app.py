@@ -9,18 +9,12 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
 # --- 0. CONFIGURATION DE LA PAGE ET DE L'ICÔNE ---
-# Doit toujours être la première commande Streamlit !
-st.set_page_config(page_title="Sargasses", page_icon="🌿") 
-
-# --- NOUVEAU : INJECTION DE L'ICÔNE IPHONE (apple-touch-icon) ---
-st.markdown(
-    """
-    <head>
-        <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/GahH97/SargassesAntilles/main/apple-touch-icon.png">
-    </head>
-    """, 
-    unsafe_allow_html=True
-)
+try:
+    # On demande à Streamlit de charger votre image comme icône officielle
+    icone = Image.open("apple-touch-icon.png")
+    st.set_page_config(page_title="Sargasses", page_icon=icone)
+except Exception:
+    st.set_page_config(page_title="Sargasses", page_icon="🌿")
 
 # --- 1. INJECTION DU STYLE CSS POUR MOBILE ---
 st.markdown("""
