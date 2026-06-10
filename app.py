@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import streamlit.components.v1 as components
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import datetime
